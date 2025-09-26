@@ -1,191 +1,211 @@
-import argparse
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import json
-from src.services.product_service import ProductService
-from src.services.order_service import OrderService
-from src.services.customer_service import CustomerService
-from src.services.payment_services import PaymentService
-from src.services.Reporting_Services import ReportService
-from src.dao.product_dao import ProductRepository
-from src.dao.customer_dao import CustomerRepository
-from src.dao.order_dao import OrderRepository
-from src.dao.payment_dao import PaymentRepository
+from services.product_service import ProductService
+from services.customer_service import CustomerService
+from services.order_service import OrderService
+from services.payment_services import PaymentService
+from services.reporting_services import ReportingService
+from dao.product_dao import ProductDAO
+from dao.customer_dao import CustomerDAO
+from dao.order_dao import OrderDAO
+from dao.payment_dao import PaymentDAO
+
 
 
 class RetailCLI:
     def __init__(self):
-        # Services
-        self.product_service = ProductService(ProductRepository())
-        self.customer_service = CustomerService(CustomerRepository())
-        self.order_service = OrderService(OrderRepository(), ProductRepository(), CustomerRepository())
-        self.payment_service = PaymentService(PaymentRepository(), OrderRepository())
-        self.report_service = ReportService(ProductRepository(), OrderRepository(), CustomerRepository())
-        self.parser = self.build_parser()
+        # Initialize DAOs
+        self.product_dao = ProductDAO()
+        self.customer_dao = CustomerDAO()
+        self.order_dao = OrderDAO()
+        self.payment_dao = PaymentDAO()
+
+        # Initialize services
+        self.product_service = ProductService(self.product_dao)
+        self.customer_service = CustomerService(self.customer_dao)
+        self.order_service = OrderService(self.order_dao, self.product_dao, self.customer_dao)
+        self.payment_service = PaymentService(self.payment_dao, self.order_dao)
+        self.reporting_service = ReportingService(self.product_dao, self.order_dao, self.customer_dao)
 
     # ------------------ PRODUCT ------------------
-    def cmd_product_add(self, args):
-        try:
-            p = self.product_service.add_product(args.name, args.sku, args.price, args.stock, args.category)
-            print("Created product:")
-            print(json.dumps(p, indent=2, default=str))
-        except Exception as e:
-            print("Error:", e)
-
-    def cmd_product_list(self, args):
-        ps = self.product_service.dao.list_products(limit=100)
-        print(json.dumps(ps, indent=2, default=str))
+    def product_menu(self):
+        print("\n--- Product Menu ---")
+        print("1. Add Product")
+        print("2. List Products")
+        print("0. Back")
+        choice = input("Enter choice: ").strip()
+        if choice == "1":
+            try:
+                name = input("Name: ")
+                sku = input("SKU: ")
+                price = float(input("Price: "))
+                stock = int(input("Stock: "))
+                category = input("Category (optional): ") or None
+                product = self.product_service.add_product(name, sku, price, stock, category)
+                print("Created product:")
+                print(json.dumps(product, indent=2, default=str))
+            except Exception as e:
+                print("Error:", e)
+        elif choice == "2":
+            products = self.product_service.list_products(limit=100)
+            print(json.dumps(products, indent=2, default=str))
+        elif choice == "0":
+            return
+        else:
+            print("Invalid choice")
 
     # ------------------ CUSTOMER ------------------
-    def cmd_customer_add(self, args):
-        try:
-            c = self.customer_service.create_customer(args.name, args.email, args.phone, args.city)
-            print("Created customer:")
-            print(json.dumps(c, indent=2, default=str))
-        except Exception as e:
-            print("Error:", e)
+    def customer_menu(self):
+        print("\n--- Customer Menu ---")
+        print("1. Add Customer")
+        print("2. List Customers")
+        print("0. Back")
+        choice = input("Enter choice: ").strip()
+        if choice == "1":
+            try:
+                name = input("Name: ")
+                email = input("Email: ")
+                phone = input("Phone: ")
+                city = input("City (optional): ") or None
+                customer = self.customer_service.create_customer(name, email, phone, city)
+                print("Created customer:")
+                print(json.dumps(customer, indent=2, default=str))
+            except Exception as e:
+                print("Error:", e)
+        elif choice == "2":
+            customers = self.customer_service.list_customers()
+            print(json.dumps(customers, indent=2, default=str))
+        elif choice == "0":
+            return
+        else:
+            print("Invalid choice")
 
     # ------------------ ORDER ------------------
-    def cmd_order_create(self, args):
-        items = []
-        for item in args.item:
+    def order_menu(self):
+        print("\n--- Order Menu ---")
+        print("1. Create Order")
+        print("2. Show Order Details")
+        print("3. Cancel Order")
+        print("0. Back")
+        choice = input("Enter choice: ").strip()
+        if choice == "1":
             try:
-                pid, qty = item.split(":")
-                items.append({"prod_id": int(pid), "quantity": int(qty)})
-            except Exception:
-                print("Invalid item format:", item)
-                return
-        try:
-            ord = self.order_service.create_order(args.customer, items)
-            # Create pending payment automatically
-            self.payment_service.create_pending_payment(ord["order_id"], ord["total_amount"])
-            print("Order created:")
-            print(json.dumps(ord, indent=2, default=str))
-        except Exception as e:
-            print("Error:", e)
-
-    def cmd_order_show(self, args):
-        try:
-            o = self.order_service.get_order_details(args.order)
-            print(json.dumps(o, indent=2, default=str))
-        except Exception as e:
-            print("Error:", e)
-
-    def cmd_order_cancel(self, args):
-        try:
-            self.order_service.cancel_order(args.order)
-            self.payment_service.refund_order_payment(args.order)
-            print("Order cancelled and payment refunded")
-        except Exception as e:
-            print("Error:", e)
+                cust_id = int(input("Customer ID: "))
+                items_input = input("Enter items (prod_id:qty, separated by commas): ")
+                items = []
+                for item in items_input.split(","):
+                    pid, qty = item.strip().split(":")
+                    items.append({"prod_id": int(pid), "quantity": int(qty)})
+                order = self.order_service.create_order(cust_id, items)
+                # Auto-create pending payment
+                self.payment_service.create_pending_payment(order["order_id"], order["total_amount"])
+                print("Order created:")
+                print(json.dumps(order, indent=2, default=str))
+            except Exception as e:
+                print("Error:", e)
+        elif choice == "2":
+            try:
+                order_id = int(input("Order ID: "))
+                order = self.order_service.get_order_details(order_id)
+                print(json.dumps(order, indent=2, default=str))
+            except Exception as e:
+                print("Error:", e)
+        elif choice == "3":
+            try:
+                order_id = int(input("Order ID: "))
+                self.order_service.cancel_order(order_id)
+                self.payment_service.refund_order_payment(order_id)
+                print("Order cancelled and payment refunded")
+            except Exception as e:
+                print("Error:", e)
+        elif choice == "0":
+            return
+        else:
+            print("Invalid choice")
 
     # ------------------ PAYMENT ------------------
-    def cmd_payment_pay(self, args):
-        try:
-            payment = self.payment_service.pay_order(args.order, args.method)
-            print("Payment processed:")
-            print(json.dumps(payment, indent=2, default=str))
-        except Exception as e:
-            print("Error:", e)
-
-    # ------------------ REPORTS ------------------
-    def cmd_report_top_products(self, args):
-        top = self.report_service.top_selling_products()
-        print("Top selling products:")
-        print(json.dumps(top, indent=2, default=str))
-
-    def cmd_report_revenue_last_month(self, args):
-        revenue = self.report_service.total_revenue_last_month()
-        print(f"Total revenue last month: {revenue}")
-
-    def cmd_report_customer_orders(self, args):
-        summary = self.report_service.total_orders_per_customer()
-        print("Orders per customer:")
-        print(json.dumps(summary, indent=2, default=str))
-
-    def cmd_report_frequent_customers(self, args):
-        customers = self.report_service.frequent_customers()
-        print("Frequent customers:")
-        print(json.dumps(customers, indent=2, default=str))
-
-    # ------------------ CLI BUILDER ------------------
-    def build_parser(self):
-        parser = argparse.ArgumentParser(prog="retail-cli")
-        sub = parser.add_subparsers(dest="cmd")
-
-        # PRODUCT
-        p_prod = sub.add_parser("product", help="product commands")
-        pprod_sub = p_prod.add_subparsers(dest="action")
-        addp = pprod_sub.add_parser("add")
-        addp.add_argument("--name", required=True)
-        addp.add_argument("--sku", required=True)
-        addp.add_argument("--price", type=float, required=True)
-        addp.add_argument("--stock", type=int, default=0)
-        addp.add_argument("--category", default=None)
-        addp.set_defaults(func=self.cmd_product_add)
-
-        listp = pprod_sub.add_parser("list")
-        listp.set_defaults(func=self.cmd_product_list)
-
-        # CUSTOMER
-        pcust = sub.add_parser("customer")
-        pcust_sub = pcust.add_subparsers(dest="action")
-        addc = pcust_sub.add_parser("add")
-        addc.add_argument("--name", required=True)
-        addc.add_argument("--email", required=True)
-        addc.add_argument("--phone", required=True)
-        addc.add_argument("--city", default=None)
-        addc.set_defaults(func=self.cmd_customer_add)
-
-        # ORDER
-        porder = sub.add_parser("order")
-        porder_sub = porder.add_subparsers(dest="action")
-        createo = porder_sub.add_parser("create")
-        createo.add_argument("--customer", type=int, required=True)
-        createo.add_argument("--item", required=True, nargs="+", help="prod_id:qty (repeatable)")
-        createo.set_defaults(func=self.cmd_order_create)
-
-        showo = porder_sub.add_parser("show")
-        showo.add_argument("--order", type=int, required=True)
-        showo.set_defaults(func=self.cmd_order_show)
-
-        cano = porder_sub.add_parser("cancel")
-        cano.add_argument("--order", type=int, required=True)
-        cano.set_defaults(func=self.cmd_order_cancel)
-
-        # PAYMENT
-        ppay = sub.add_parser("payment", help="payment commands")
-        ppay_sub = ppay.add_subparsers(dest="action")
-        pay = ppay_sub.add_parser("pay")
-        pay.add_argument("--order", type=int, required=True)
-        pay.add_argument("--method", choices=["Cash", "Card", "UPI"], required=True)
-        pay.set_defaults(func=self.cmd_payment_pay)
-
-        # REPORTS
-        prep = sub.add_parser("report", help="report commands")
-        prep_sub = prep.add_subparsers(dest="action")
-        top = prep_sub.add_parser("top-products")
-        top.set_defaults(func=self.cmd_report_top_products)
-
-        rev = prep_sub.add_parser("revenue-last-month")
-        rev.set_defaults(func=self.cmd_report_revenue_last_month)
-
-        cust_orders = prep_sub.add_parser("customer-orders")
-        cust_orders.set_defaults(func=self.cmd_report_customer_orders)
-
-        freq_cust = prep_sub.add_parser("frequent-customers")
-        freq_cust.set_defaults(func=self.cmd_report_frequent_customers)
-
-        return parser
-
-    def run(self):
-        args = self.parser.parse_args()
-        if not hasattr(args, "func"):
-            self.parser.print_help()
+    def payment_menu(self):
+        print("\n--- Payment Menu ---")
+        print("1. Pay Order")
+        print("0. Back")
+        choice = input("Enter choice: ").strip()
+        if choice == "1":
+            try:
+                order_id = int(input("Order ID: "))
+                method = input("Payment Method (Cash/Card/UPI): ")
+                payment = self.payment_service.pay_order(order_id, method)
+                print("Payment processed:")
+                print(json.dumps(payment, indent=2, default=str))
+            except Exception as e:
+                print("Error:", e)
+        elif choice == "0":
             return
-        args.func(args)
+        else:
+            print("Invalid choice")
+
+    # ------------------ REPORT ------------------
+    def report_menu(self):
+        print("\n--- Reports Menu ---")
+        print("1. Top Selling Products")
+        print("2. Total Revenue Last Month")
+        print("3. Orders per Customer")
+        print("4. Frequent Customers")
+        print("0. Back")
+        choice = input("Enter choice: ").strip()
+        if choice == "1":
+            top = self.reporting_service.top_selling_products()
+            print("Top selling products:")
+            print(json.dumps(top, indent=2, default=str))
+        elif choice == "2":
+            revenue = self.reporting_service.total_revenue_last_month()
+            print(f"Total revenue last month: {revenue}")
+        elif choice == "3":
+            summary = self.reporting_service.total_orders_per_customer()
+            print("Orders per customer:")
+            print(json.dumps(summary, indent=2, default=str))
+        elif choice == "4":
+            customers = self.reporting_service.frequent_customers()
+            print("Frequent customers:")
+            print(json.dumps(customers, indent=2, default=str))
+        elif choice == "0":
+            return
+        else:
+            print("Invalid choice")
+
+    # ------------------ MAIN MENU ------------------
+    def main_menu(self):
+        while True:
+            print("\n=== Retail Management CLI ===")
+            print("1. Products")
+            print("2. Customers")
+            print("3. Orders")
+            print("4. Payments")
+            print("5. Reports")
+            print("0. Exit")
+            choice = input("Enter choice: ").strip()
+            if choice == "1":
+                self.product_menu()
+            elif choice == "2":
+                self.customer_menu()
+            elif choice == "3":
+                self.order_menu()
+            elif choice == "4":
+                self.payment_menu()
+            elif choice == "5":
+                self.report_menu()
+            elif choice == "0":
+                print("Exiting...")
+                break
+            else:
+                print("Invalid choice, try again.")
+
 
 def main():
     cli = RetailCLI()
-    cli.run()
+    cli.main_menu()
 
 
 if __name__ == "__main__":

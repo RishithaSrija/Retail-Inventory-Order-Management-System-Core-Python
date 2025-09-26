@@ -1,24 +1,36 @@
-from src.dao.payment_dao import PaymentRepository
-from src.dao.order_dao import OrderRepository
+# src/services/payment_service.py
+from dao.payment_dao import PaymentDAO
+from dao.order_dao import OrderDAO
+from typing import Dict
 
 class PaymentService:
-    def __init__(self, payment_repo: PaymentRepository, order_repo: OrderRepository):
-        self.payment_repo = payment_repo
-        self.order_repo = order_repo
+    def __init__(self, payment_dao: PaymentDAO, order_dao: OrderDAO):
+        self.payment_dao = payment_dao
+        self.order_dao = order_dao
 
-    def create_pending_payment(self, order_id: int, amount: float):
-        return self.payment_repo.create_payment(order_id, amount)
+    def create_pending_payment(self, order_id: int, amount: float) -> Dict:
+        if not order_id:
+            raise ValueError("Order ID is required")
+        if amount <= 0:
+            raise ValueError("Payment amount must be positive")
 
-    def pay_order(self, order_id: int, method: str):
-        # mark payment PAID
-        payment = self.payment_repo.process_payment(order_id, method)
-        # mark order COMPLETED
-        self.order_repo.update_order(order_id, {"status": "COMPLETED"})
-        return payment
+        return self.payment_dao.create_payment(order_id, amount, status="PENDING")
 
-    def refund_order_payment(self, order_id: int):
-        # mark payment REFUNDED
-        payment = self.payment_repo.refund_payment(order_id)
-        # mark order CANCELLED
-        self.order_repo.update_order(order_id, {"status": "CANCELLED"})
-        return payment
+    def pay_order(self, order_id: int, method: str) -> Dict:
+        if not order_id:
+            raise ValueError("Order ID is required")
+        if method not in ["Cash", "Card", "UPI"]:
+            raise ValueError("Invalid payment method")
+
+        payment = self.payment_dao.get_payment_by_order(order_id)
+        if not payment:
+            raise LookupError(f"No payment found for order {order_id}")
+
+        return self.payment_dao.update_payment(order_id, {"status": "PAID", "method": method})
+
+    def refund_order_payment(self, order_id: int) -> Dict:
+        payment = self.payment_dao.get_payment_by_order(order_id)
+        if not payment:
+            raise LookupError(f"No payment found for order {order_id}")
+
+        return self.payment_dao.update_payment(order_id, {"status": "REFUNDED"})

@@ -1,97 +1,26 @@
-# # src/services/product_service.py
+from typing import Optional, Dict, List
+from dao.product_dao import ProductDAO
 
-# from typing import List, Dict
-
-# import src.dao.product_dao as product_dao
-
-
-# class ProductError(Exception):
-
-#     pass
-
- 
-
-# def add_product(name: str, sku: str, price: float, stock: int = 0, category: str | None = None) -> Dict:
-
-#     def __init__(self):
-#         # Later if you want, you can inject dao here
-#         self.dao = product_dao
-
-#     def add_product(
-#         self, 
-#         name: str, 
-#         sku: str, 
-#         price: float, 
-#         stock: int = 0, 
-#         category: str | None = None
-#         ) -> Dict:
-    
-#      """
-
-#     Validate and insert a new product.
-
-#     Raises ProductError on validation failure.
-
-#     """
-
-#     if price <= 0:
-
-#         raise ProductError("Price must be greater than 0")
-
-#     existing = product_dao.get_product_by_sku(sku)
-
-#     if existing:
-
-#         raise ProductError(f"SKU already exists: {sku}")
-
-#     return product_dao.create_product(name, sku, price, stock, category)
-
- 
-
-# def restock_product(prod_id: int, delta: int) -> Dict:
-
-#     if delta <= 0:
-
-#         raise ProductError("Delta must be positive")
-
-#     p = product_dao.get_product_by_id(prod_id)
-
-#     if not p:
-
-#         raise ProductError("Product not found")
-
-#     new_stock = (p.get("stock") or 0) + delta
-
-#     return product_dao.update_product(prod_id, {"stock": new_stock})
-
- 
-
-# def get_low_stock(threshold: int = 5) -> List[Dict]:
-
-#     allp = product_dao.list_products(limit=1000)
-
-#     return [p for p in allp if (p.get("stock") or 0) <= threshold]
-
-
-
-
-# src/services/product_service.py
-from typing import List, Dict
-from src.dao.product_dao import ProductRepository
 
 class ProductError(Exception):
+    """Custom exception for product-related errors."""
     pass
 
+
 class ProductService:
-    def __init__(self, dao: ProductRepository):
-        """
-        Initialize the service with a DAO (Data Access Object).
-        """
+    def __init__(self, dao: ProductDAO):
         self.dao = dao
 
-    def add_product(self, name: str, sku: str, price: float, stock: int = 0, category: str | None = None) -> Dict:
+    def add_product(
+        self,
+        name: str,
+        sku: str,
+        price: float,
+        stock: int = 0,
+        category: Optional[str] = None,
+    ) -> Dict:
         """
-        Validate and insert a new product.
+        Validate and add a new product.
         Raises ProductError on validation failure.
         """
         if price <= 0:
@@ -105,21 +34,48 @@ class ProductService:
 
     def restock_product(self, prod_id: int, delta: int) -> Dict:
         """
-        Increase stock of a product by delta.
+        Increase stock of a product.
+        Raises ProductError if delta <= 0 or product not found.
         """
         if delta <= 0:
-            raise ProductError("Delta must be positive")
+            raise ProductError("Restock quantity must be positive")
 
-        p = self.dao.get_product_by_id(prod_id)
-        if not p:
-            raise ProductError("Product not found")
+        product = self.dao.get_product_by_id(prod_id)
+        if not product:
+            raise ProductError(f"Product not found: {prod_id}")
 
-        new_stock = (p.get("stock") or 0) + delta
+        new_stock = (product.get("stock") or 0) + delta
         return self.dao.update_product(prod_id, {"stock": new_stock})
 
     def get_low_stock(self, threshold: int = 5) -> List[Dict]:
         """
-        Return products with stock <= threshold.
+        Return a list of products with stock <= threshold.
         """
         all_products = self.dao.list_products(limit=1000)
         return [p for p in all_products if (p.get("stock") or 0) <= threshold]
+
+    def list_products(self, limit: int = 100, category: Optional[str] = None) -> List[Dict]:
+        """
+        List products optionally filtered by category.
+        """
+        return self.dao.list_products(limit=limit, category=category)
+
+    def update_product(self, prod_id: int, fields: Dict) -> Dict:
+        """
+        Update product details. Raises ProductError if product not found.
+        """
+        product = self.dao.get_product_by_id(prod_id)
+        if not product:
+            raise ProductError(f"Product not found: {prod_id}")
+
+        return self.dao.update_product(prod_id, fields)
+
+    def delete_product(self, prod_id: int) -> Dict:
+        """
+        Delete a product. Raises ProductError if product not found.
+        """
+        product = self.dao.get_product_by_id(prod_id)
+        if not product:
+            raise ProductError(f"Product not found: {prod_id}")
+
+        return self.dao.delete_product(prod_id)
