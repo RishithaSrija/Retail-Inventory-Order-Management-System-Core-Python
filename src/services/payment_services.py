@@ -7,7 +7,6 @@ class PaymentService:
     def __init__(self, payment_dao: PaymentDAO, order_dao: OrderDAO):
         self.payment_dao = payment_dao
         self.order_dao = order_dao
-
     def create_pending_payment(self, order_id: int, amount: float) -> Dict:
         if not order_id:
             raise ValueError("Order ID is required")

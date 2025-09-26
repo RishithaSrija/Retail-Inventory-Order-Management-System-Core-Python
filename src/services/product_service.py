@@ -6,7 +6,6 @@ class ProductError(Exception):
     """Custom exception for product-related errors."""
     pass
 
-
 class ProductService:
     def __init__(self, dao: ProductDAO):
         self.dao = dao

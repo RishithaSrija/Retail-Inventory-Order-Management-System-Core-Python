@@ -3,7 +3,6 @@ from typing import List, Dict
 from dao.product_dao import ProductDAO
 from dao.order_dao import OrderDAO
 from dao.customer_dao import CustomerDAO
-
 class ReportingService:
     def __init__(self, product_dao: ProductDAO, order_dao: OrderDAO, customer_dao: CustomerDAO):
         self.product_dao = product_dao

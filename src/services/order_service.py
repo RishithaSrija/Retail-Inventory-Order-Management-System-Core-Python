@@ -8,7 +8,6 @@ class OrderService:
         self.order_dao = order_dao
         self.product_dao = product_dao
         self.customer_dao = customer_dao
-
     def place_order(self, cust_id: int, total_amount: float) -> Dict:
         if not cust_id:
             raise ValueError("Customer ID is required")

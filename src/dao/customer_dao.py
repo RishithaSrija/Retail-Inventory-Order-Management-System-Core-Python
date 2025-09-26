@@ -3,7 +3,6 @@
 from typing import Optional, List, Dict
 from src.config import get_supabase
 
-
 class CustomerDAO:
     """Data Access Object for Customer entity"""
 

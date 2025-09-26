@@ -5,7 +5,6 @@ from src.config import get_supabase
 class OrderDAO:
     def __init__(self):
         self._sb = get_supabase()
-
     def create_order(self, cust_id: int, total_amount: float) -> Optional[Dict]:
         payload = {"cust_id": cust_id, "total_amount": total_amount}
         resp = self._sb.table("orders").insert(payload).execute()

@@ -4,7 +4,6 @@ from typing import List, Dict
 import src.dao.customer_dao as customer_dao
 
  
-
 class CustomerError(Exception):
 
     def __init__(self,message:str):

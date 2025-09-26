@@ -22,7 +22,6 @@ class RetailCLI:
         self.customer_dao = CustomerDAO()
         self.order_dao = OrderDAO()
         self.payment_dao = PaymentDAO()
-
         # Initialize services
         self.product_service = ProductService(self.product_dao)
         self.customer_service = CustomerService(self.customer_dao)
