@@ -1,5 +1,4 @@
 # src/dao/customer_dao.py
-
 from typing import Optional, List, Dict
 from src.config import get_supabase
 
@@ -9,13 +8,13 @@ class CustomerDAO:
     def __init__(self):
         self._sb = get_supabase()
 
-    def create_customer(self, name: str, email: str, phone: str | None = None, address: str | None = None) -> Optional[Dict]:
+    def create_customer(self, name: str, email: str, phone: str | None = None, city: str | None = None) -> Optional[Dict]:
         """Insert a customer and return the inserted row"""
         payload = {"name": name, "email": email}
         if phone:
             payload["phone"] = phone
-        if address:
-            payload["address"] = address
+        if city:
+            payload["city"] = city
 
         self._sb.table("customers").insert(payload).execute()
 
